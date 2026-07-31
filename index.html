@@ -487,6 +487,10 @@
                 networkStatusEl.onclick = null;
                 applyThemeColor('green');
                 
+                // Mengizinkan Pull to refresh kembali (Overscroll aktif)
+                document.body.style.overscrollBehaviorY = 'auto';
+                document.documentElement.style.overscrollBehaviorY = 'auto';
+                
                 // Coba sinkronisasi jika ada data tertunda
                 syncPendingData();
             } else {
@@ -496,6 +500,10 @@
                 networkStatusEl.className = "fixed top-4 right-4 z-50 px-4 py-2 rounded-full font-semibold shadow-md transition-colors duration-300 flex items-center gap-2 bg-orange-100 text-orange-800 border border-orange-400 cursor-pointer hover:bg-orange-200 animate-pulse";
                 networkStatusEl.onclick = forceOffline;
                 applyThemeColor('orange');
+                
+                // Mencegah Pull to refresh sistem (CSS Fallback Lock)
+                document.body.style.overscrollBehaviorY = 'none';
+                document.documentElement.style.overscrollBehaviorY = 'none';
             }
         }
 
@@ -508,7 +516,7 @@
             updateUIStatus(); 
         });
 
-        // Mencegah user me-refresh halaman saat offline yang berakibat error "Tidak Ada Internet"
+        // 1. Mencegah user me-refresh halaman (Via tombol Browser Refresh / Tutup tab)
         window.addEventListener('beforeunload', (e) => {
             const isCurrentlyOffline = !navigator.onLine || isForceOfflineMode;
             if (isCurrentlyOffline) {
@@ -516,6 +524,37 @@
                 e.returnValue = 'Anda sedang offline. Merefresh halaman akan menyebabkan formulir gagal dimuat (Error No Internet). Pastikan Anda tetap di halaman ini.';
             }
         });
+
+        // 2. Mencegah Refresh dari Keyboard PC (F5, Ctrl+R, Cmd+R)
+        window.addEventListener('keydown', function(e) {
+            const isCurrentlyOffline = !navigator.onLine || isForceOfflineMode;
+            if (isCurrentlyOffline) {
+                if (e.key === 'F5' || (e.ctrlKey && (e.key === 'r' || e.key === 'R')) || (e.metaKey && (e.key === 'r' || e.key === 'R'))) {
+                    e.preventDefault();
+                    if(typeof Swal !== 'undefined') {
+                        Swal.fire({ toast: true, position: 'top', icon: 'warning', title: 'Aksi Refresh dikunci saat mode offline agar data tidak hilang.', showConfirmButton: false, timer: 3000 });
+                    }
+                }
+            }
+        });
+
+        // 3. Mencegah Gesture Pull-to-Refresh di Android dan iOS (Touch Swipe Down)
+        let lastTouchY = 0;
+        window.addEventListener('touchstart', function(e) {
+            lastTouchY = e.touches[0].clientY;
+        }, { passive: false });
+
+        window.addEventListener('touchmove', function(e) {
+            const isCurrentlyOffline = !navigator.onLine || isForceOfflineMode;
+            if (isCurrentlyOffline) {
+                const touchY = e.touches[0].clientY;
+                const touchDiff = touchY - lastTouchY;
+                // Jika posisi scroll ada di paling atas (0) dan user menarik ke bawah (pull down)
+                if (touchDiff > 0 && window.scrollY === 0) {
+                    e.preventDefault(); // Batalkan aksi default browser (refresh)
+                }
+            }
+        }, { passive: false });
 
         async function syncPendingData() {
             if (isSyncing || !navigator.onLine) return;
