@@ -1,1 +1,1 @@
-# -Pendaftaran-tanega-keagamaan-kutai-timur
+# -Pendaftaran-tenaga-keagamaan-kutai-timur
